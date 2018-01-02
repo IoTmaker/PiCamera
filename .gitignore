@@ -99,3 +99,10 @@ ENV/
 
 # mypy
 .mypy_cache/
+
+.AppleDouble/
+.DS_Store
+.idea/
+video_sequences/
+
+*.jpg
