@@ -6,6 +6,7 @@ from subprocess import Popen, PIPE, DEVNULL
 from multiprocessing import Process
 from picamera import PiCamera
 from gpiozero import MotionSensor, LED
+import time
 
 # sudo apt-get install vlc
 # reference: https://raspberrypi.stackexchange.com/questions/62523/always-on-security-camera-uploading-to-cloud-looping-video-recording-saving
@@ -17,6 +18,8 @@ BITRATE = 1000000 # bps
 QUALITY = 22
 CHUNK_LENGTH = 60 # seconds
 SIZE_LIMIT = 1024 * 1048576 # bytes
+
+logging.getLogger().setLevel(logging.INFO)
 
 
 class VideoFile:
@@ -60,29 +63,50 @@ class VideoFile:
 
 
 def detectMovement():
-    
+    movement_counter = 0
+    current_state = False
+    previous_state = False
+
+    # Set a variable to hold the GPIO Pin identity
+    pir = MotionSensor(4)
+
+    print("Waiting for PIR to settle")
+    pir.wait_for_no_motion()
+
     while True:
-        print("detectMovement()")
-        led = LED(16)
-        pir = MotionSensor(4)
-        pir.wait_for_motion()
-        print("Motion detected")
-        pir.when_motion = led.on
-        pir.when_motion = counter()
-        pir.when_no_motion = led.off
-        pause()
+        # Read PIR state
+        current_state = pir.motion_detected
+
+        # If the PIR is triggered
+        if current_state is True and previous_state is False:
+            print("    Motion detected!", movement_counter)
+            movement_counter += 1
+            # Record previous state
+            previous_state = True
+        # If the PIR has returned to ready state
+        elif current_state is False and previous_state is True:
+            print("    No Motion")
+            previous_state = False
+
+        # Wait for 10 milliseconds
+        time.sleep(0.01)
+
 
 count = 0
 
+
 def counter():
+    print('counter() called')
     count + 1
-    print(count)
+    print('count:', count)
+
 
 def outputs():
     while True:
         yield VideoFile()
 
-def recordVideo():
+
+def record_video():
     print("recordVideo()")
     with PiCamera(resolution=RESOLUTION, framerate=FRAMERATE) as camera:
         files = []
@@ -106,16 +130,12 @@ def recordVideo():
             camera.wait_recording(CHUNK_LENGTH)
 
 
-
-logging.getLogger().setLevel(logging.INFO)
-
 if __name__ == '__main__':
-    while True:
-        # detectMovement(camera)
-        DetectMovement = Process(target=detectMovement, args=())
-        DetectMovement.start()
-        recordVideo()
-        # p.join()
-
-
-    
+    try:
+        while True:
+            DetectMovement = Process(target=detectMovement, args=())
+            DetectMovement.start()
+            record_video()
+            # p.join()
+    except KeyboardInterrupt:
+        print("    Quit (Ctl+C)")
