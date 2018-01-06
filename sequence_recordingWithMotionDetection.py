@@ -2,11 +2,13 @@ import io
 import os
 import logging
 import datetime as dt
+import time
+import pytz
+from pathlib import Path
 from subprocess import Popen, PIPE, DEVNULL
 from multiprocessing import Process
 from picamera import PiCamera
 from gpiozero import MotionSensor, LED
-import time
 
 # sudo apt-get install vlc
 # reference: https://raspberrypi.stackexchange.com/questions/62523/always-on-security-camera-uploading-to-cloud-looping-video-recording-saving
@@ -62,7 +64,7 @@ class VideoFile:
         self._filename = None
 
 
-def detectMovement():
+def detectMovement(path_to_motion_log_file):
     movement_counter = 0
     current_state = False
     previous_state = False
@@ -83,6 +85,13 @@ def detectMovement():
             movement_counter += 1
             # Record previous state
             previous_state = True
+            # print the time of the motion to the motion_log_file
+            file = open(path_to_motion_log_file, "a")
+            time_now_utc = dt.datetime.utcnow()
+            tz_aware = time_now_utc.replace(tzinfo=pytz.UTC)
+            est_time = tz_aware.astimezone(pytz.timezone("America/New_York"))
+            file.write(est_time.strftime('%Y%m%d-%H%M%S') + "\n")
+
         # If the PIR has returned to ready state
         elif current_state is False and previous_state is True:
             print("    No Motion")
@@ -90,16 +99,6 @@ def detectMovement():
 
         # Wait for 10 milliseconds
         time.sleep(0.01)
-
-
-count = 0
-
-
-def counter():
-    print('counter() called')
-    count + 1
-    print('count:', count)
-
 
 def outputs():
     while True:
@@ -130,10 +129,19 @@ def record_video():
             camera.wait_recording(CHUNK_LENGTH)
 
 
+
 if __name__ == '__main__':
+    log_file = Path("./motion_log_file.txt")
+    path_to_log_file = str(log_file)
+    #     create the log file to hold list of motion detection events if not already present
+    if log_file.is_file() is False:
+        #     create file
+        print("motion_log_file.txt file did not exist.  Creating. ")
+        open(str(log_file), 'w')
+
     try:
         while True:
-            DetectMovement = Process(target=detectMovement, args=())
+            DetectMovement = Process(target=detectMovement, args=(path_to_log_file,))
             DetectMovement.start()
             record_video()
             # p.join()

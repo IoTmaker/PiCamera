@@ -1,3 +1,11 @@
+# Project specific 
+.AppleDouble/
+.DS_Store
+.idea/
+video_sequences/
+*.jpg
+motion_log_file.txt
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -99,10 +107,3 @@ ENV/
 
 # mypy
 .mypy_cache/
-
-.AppleDouble/
-.DS_Store
-.idea/
-video_sequences/
-
-*.jpg
