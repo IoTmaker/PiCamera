@@ -15,11 +15,11 @@ from gpiozero import MotionSensor, LED
 DESTINATION = './video_sequences/'
 STILLS_DESTINATION = './stills/'
 RESOLUTION = '1920x1080'
-FRAMERATE = 30 # fps
-BITRATE = 1000000 # bps
+FRAMERATE = 30  # fps
+BITRATE = 1000000  # bps
 QUALITY = 22
-CHUNK_LENGTH = 60 # seconds
-SIZE_LIMIT = 1024 * 1048576 # bytes
+CHUNK_LENGTH = 60  # seconds
+SIZE_LIMIT = 1024 * 1048576  # bytes
 
 logging.getLogger().setLevel(logging.INFO)
 
@@ -100,6 +100,7 @@ def detectMovement(path_to_motion_log_file):
         # Wait for 10 milliseconds
         time.sleep(0.01)
 
+
 def outputs():
     while True:
         yield VideoFile()
@@ -110,12 +111,11 @@ def record_video():
     with PiCamera(resolution=RESOLUTION, framerate=FRAMERATE) as camera:
         files = []
         last_output = None
-        
         for output in camera.record_sequence(
-                outputs(), 
+                outputs(),
                 format='h264',
-                bitrate=BITRATE, 
-                quality=QUALITY, 
+                bitrate=BITRATE,
+                quality=QUALITY,
                 intra_period=5 * FRAMERATE):
             if last_output is not None:
                 last_output.close()
@@ -129,11 +129,11 @@ def record_video():
             camera.wait_recording(CHUNK_LENGTH)
 
 
-
 if __name__ == '__main__':
     log_file = Path("./motion_log_file.txt")
     path_to_log_file = str(log_file)
-    #     create the log file to hold list of motion detection events if not already present
+    # create the log file to hold list of motion detection events
+    # if not already present
     if log_file.is_file() is False:
         #     create file
         print("motion_log_file.txt file did not exist.  Creating. ")
@@ -141,7 +141,8 @@ if __name__ == '__main__':
 
     try:
         while True:
-            DetectMovement = Process(target=detectMovement, args=(path_to_log_file,))
+            DetectMovement = Process(target=detectMovement,
+                                     args=(path_to_log_file,))
             DetectMovement.start()
             record_video()
             # p.join()
