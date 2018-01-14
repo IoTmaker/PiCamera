@@ -6,7 +6,7 @@ import time
 import pytz
 from pathlib import Path
 from subprocess import Popen, PIPE, DEVNULL
-from multiprocessing import Process
+from multiprocessing import Process, Queue
 from picamera import PiCamera
 from gpiozero import MotionSensor, LED
 
@@ -20,6 +20,8 @@ BITRATE = 1000000  # bps
 QUALITY = 22
 CHUNK_LENGTH = 60  # seconds
 SIZE_LIMIT = 1024 * 1048576  # bytes
+
+# hold timer for Infrared Light
 
 logging.getLogger().setLevel(logging.INFO)
 
@@ -63,8 +65,60 @@ class VideoFile:
         os.unlink(self._filename)
         self._filename = None
 
+class ControlIRLight(object):
+    
+    def __init__(self):
+        self._led = LED(17)
+    
+    def turn_on_off_ir_light(self,q):
+        method="turn_on_off_ir_light"
+        print(method)
+        self._led.off
+        time_movement_detected = None
+        try:
+            while True:
+                try:
+                    time_movement_detected = q.get_nowait()
+                except:
+                    print("EXCEPT: time_movement_detected = q.get_nowait()")
+                    pass
+                
+                if time_movement_detected is None:
+                    print("time_movement_detected is None: ", time_movement_detected)
+                    time_movement_detected = 0
+                twentyMinutes = 60*20
+                
+                print("time.time()                            = ", time.time())
+                print("time_movement_detected                 = ", time_movement_detected)
+                print("time.time() - time_movement_detected   = ", time.time() - time_movement_detected)
+                
+                if time_movement_detected > 0:
+                    print("time_movement_detected > 0")
+                    if time.time() - time_movement_detected > 5:
+#                         if time.time() - time_movement_detected > twentyMinutes:  # USE THIS LINE
+                        self._led.off
+                        print("LED OFF      ********")
+                        time_movement_detected = 0
+                    else:
+                        self._led.on
+                        print("LED ON -----")
+#                 else:
+#                     self._led.on
+#                     print("LED ON")
+                
+                time.sleep(1)
+        # Take time at point of lastTimeOfDetection. Turn LED on
+        # if current time - time_movement_detected > 20 min turn LED off, else keep LED ON
+        # reset the 
+        
+        except Exception:
+            print("Exception.message", Exception.message)
+            print("Exception in ", method)
+            pass
 
-def detectMovement(path_to_motion_log_file):
+    
+
+def detectMovement(path_to_motion_log_file,q):
     movement_counter = 0
     current_state = False
     previous_state = False
@@ -76,6 +130,7 @@ def detectMovement(path_to_motion_log_file):
     pir.wait_for_no_motion()
 
     while True:
+        
         # Read PIR state
         current_state = pir.motion_detected
 
@@ -91,6 +146,7 @@ def detectMovement(path_to_motion_log_file):
             tz_aware = time_now_utc.replace(tzinfo=pytz.UTC)
             est_time = tz_aware.astimezone(pytz.timezone("America/New_York"))
             file.write(est_time.strftime('%Y%m%d-%H%M%S') + "\n")
+            q.put(time.time())
 
         # If the PIR has returned to ready state
         elif current_state is False and previous_state is True:
@@ -141,9 +197,17 @@ if __name__ == '__main__':
 
     try:
         while True:
+            q = Queue()
+            
             DetectMovement = Process(target=detectMovement,
-                                     args=(path_to_log_file,))
+                                     args=(path_to_log_file,q,))
             DetectMovement.start()
+            
+            controlIRLight = ControlIRLight()
+            TurnOnIRLight = Process(target=controlIRLight.turn_on_off_ir_light,
+                                    args=(q,))
+            TurnOnIRLight.start()
+            
             record_video()
             # p.join()
     except KeyboardInterrupt:
